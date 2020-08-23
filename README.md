@@ -1,4 +1,4 @@
-# Virtual UDP Streaming Joyapd
+# Virtual UDP Streaming Joypad
 
 The start of a project with the intention of creating a virtual joypad to be used while streaming games to a friend in a similar way to steam remote play.
 
