@@ -23,6 +23,7 @@ struct sockaddr_in servaddr, cliaddr;
 struct timeval timeout={2,0}; //set timeout for 2 seconds
 
 unsigned int runme = 1U;
+unsigned int data_received = 0U;
 
 virjoy_un vjdata;
 virjoy_un vjdata_prev;
@@ -47,6 +48,12 @@ void *UDP_Read_Thread(void *vargp)
       
         if(n > -1)
         {
+            if(data_received == 0U)
+            {
+                data_received = 1U;
+                printf("First Packet Received\n");
+            }
+            
             /* lock the data so that the main thread will not read during write */
             pthread_mutex_lock(&lock); 
 
@@ -114,45 +121,49 @@ int uinput_init(int *fd)
     ioctl(*fd, UI_SET_KEYBIT, BTN_TR);
     ioctl(*fd, UI_SET_KEYBIT, BTN_THUMBL);
     ioctl(*fd, UI_SET_KEYBIT, BTN_THUMBR);
-    ioctl(*fd, UI_SET_KEYBIT, BTN_DPAD_UP);
-    ioctl(*fd, UI_SET_KEYBIT, BTN_DPAD_RIGHT);
-    ioctl(*fd, UI_SET_KEYBIT, BTN_DPAD_DOWN);
-    ioctl(*fd, UI_SET_KEYBIT, BTN_DPAD_LEFT);
+    //ioctl(*fd, UI_SET_KEYBIT, BTN_DPAD_UP);
+    //ioctl(*fd, UI_SET_KEYBIT, BTN_DPAD_RIGHT);
+    //ioctl(*fd, UI_SET_KEYBIT, BTN_DPAD_DOWN);
+    //ioctl(*fd, UI_SET_KEYBIT, BTN_DPAD_LEFT);
     ioctl(*fd, UI_SET_KEYBIT, BTN_SELECT);
     ioctl(*fd, UI_SET_KEYBIT, BTN_START);
     ioctl(*fd, UI_SET_KEYBIT, BTN_MODE);
+    ioctl(*fd, UI_SET_KEYBIT, BTN_TRIGGER_HAPPY1); //dpad left
+    ioctl(*fd, UI_SET_KEYBIT, BTN_TRIGGER_HAPPY2); //dpad right
+    ioctl(*fd, UI_SET_KEYBIT, BTN_TRIGGER_HAPPY3); //dpad up
+    ioctl(*fd, UI_SET_KEYBIT, BTN_TRIGGER_HAPPY4); //dpad down
 
     ioctl(*fd, UI_SET_EVBIT, EV_ABS);
     ioctl(*fd, UI_SET_ABSBIT, ABS_X);
     ioctl(*fd, UI_SET_ABSBIT, ABS_Y);
+    ioctl(*fd, UI_SET_ABSBIT, ABS_Z); //LT
     ioctl(*fd, UI_SET_ABSBIT, ABS_RX);
     ioctl(*fd, UI_SET_ABSBIT, ABS_RY);
-    ioctl(*fd, UI_SET_ABSBIT, ABS_BRAKE); //LT
-    ioctl(*fd, UI_SET_ABSBIT, ABS_GAS);   //RT
-    ioctl(*fd, UI_SET_ABSBIT, ABS_HAT0X);
+    ioctl(*fd, UI_SET_ABSBIT, ABS_RZ);   //RT
     ioctl(*fd, UI_SET_ABSBIT, ABS_HAT0Y);
+    ioctl(*fd, UI_SET_ABSBIT, ABS_HAT0X);
 
     memset(&uidev, 0, sizeof(uidev));
     uidev.id.bustype = BUS_USB;
-    uidev.id.vendor = 0x1234; /* sample vendor */
-    uidev.id.product = 0x5678; /* sample product */
-    uidev.absmin[ABS_X] = -32768;
+    uidev.id.vendor = 0x045e; /* sample vendor */
+    uidev.id.product = 0x0291; /* sample product */
+    uidev.absmin[ABS_X] = -32767;
     uidev.absmax[ABS_X] = 32767;
-    uidev.absmin[ABS_Y] = -32768;
+    uidev.absmin[ABS_Y] = -32767;
     uidev.absmax[ABS_Y] = 32767;
-    uidev.absmin[ABS_RX] = -32768;
+    uidev.absmin[ABS_RX] = -32767;
     uidev.absmax[ABS_RX] = 32767;
-    uidev.absmin[ABS_RY] = -32768;
+    uidev.absmin[ABS_RY] = -32767;
     uidev.absmax[ABS_RY] = 32767;
-    uidev.absmin[ABS_BRAKE] = 0;
-    uidev.absmax[ABS_BRAKE] = 255;
-    uidev.absmin[ABS_GAS] = 0;
-    uidev.absmax[ABS_GAS] = 255;
-    uidev.absmin[ABS_HAT0X] = -1;
-    uidev.absmax[ABS_HAT0X] = 1;
-    uidev.absmin[ABS_HAT0Y] = -1;
-    uidev.absmax[ABS_HAT0Y] = 1;
-    snprintf(uidev.name, UINPUT_MAX_NAME_SIZE, "my_virtual_gamepad"); //Name of Gamepad
+    uidev.absmin[ABS_Z] = -32767;
+    uidev.absmax[ABS_Z] = 32767;
+    uidev.absmin[ABS_RZ] = -32767;
+    uidev.absmax[ABS_RZ] = 32767;
+    uidev.absmin[ABS_HAT0X] = -32767;
+    uidev.absmax[ABS_HAT0X] = 32767;
+    uidev.absmin[ABS_HAT0Y] = -32767;
+    uidev.absmax[ABS_HAT0Y] = 32767;
+    snprintf(uidev.name, UINPUT_MAX_NAME_SIZE, "Xbox 360 Wireless Receiver (XBOX)"); //Name of Gamepad
 
     /* Write the uinput settings */
     write(*fd, &uidev, sizeof(uidev));
@@ -242,10 +253,15 @@ int main(void)
             emit(fd, EV_KEY, BTN_THUMBL, vjdata.virtualjoydata.VIRJOY_BTN_THUMBL);
             emit(fd, EV_KEY, BTN_THUMBR, vjdata.virtualjoydata.VIRJOY_BTN_THUMBR);
 
-            emit(fd, EV_KEY, BTN_DPAD_UP, vjdata.virtualjoydata.VIRJOY_BTN_DPAD_UP);
-            emit(fd, EV_KEY, BTN_DPAD_RIGHT, vjdata.virtualjoydata.VIRJOY_BTN_DPAD_RIGHT);
-            emit(fd, EV_KEY, BTN_DPAD_DOWN, vjdata.virtualjoydata.VIRJOY_BTN_DPAD_DOWN);
-            emit(fd, EV_KEY, BTN_DPAD_LEFT, vjdata.virtualjoydata.VIRJOY_BTN_DPAD_LEFT);
+            //emit(fd, EV_KEY, BTN_DPAD_UP, vjdata.virtualjoydata.VIRJOY_BTN_DPAD_UP);
+            //emit(fd, EV_KEY, BTN_DPAD_RIGHT, vjdata.virtualjoydata.VIRJOY_BTN_DPAD_RIGHT);
+            //emit(fd, EV_KEY, BTN_DPAD_DOWN, vjdata.virtualjoydata.VIRJOY_BTN_DPAD_DOWN);
+            //emit(fd, EV_KEY, BTN_DPAD_LEFT, vjdata.virtualjoydata.VIRJOY_BTN_DPAD_LEFT);
+            
+            emit(fd, EV_KEY, BTN_TRIGGER_HAPPY1, vjdata.virtualjoydata.VIRJOY_BTN_DPAD_LEFT); //xpad uses these for DPAD
+            emit(fd, EV_KEY, BTN_TRIGGER_HAPPY2, vjdata.virtualjoydata.VIRJOY_BTN_DPAD_RIGHT);
+            emit(fd, EV_KEY, BTN_TRIGGER_HAPPY3, vjdata.virtualjoydata.VIRJOY_BTN_DPAD_UP);
+            emit(fd, EV_KEY, BTN_TRIGGER_HAPPY4, vjdata.virtualjoydata.VIRJOY_BTN_DPAD_DOWN);
 
             emit(fd, EV_KEY, BTN_SELECT, vjdata.virtualjoydata.VIRJOY_BTN_SELECT);
             emit(fd, EV_KEY, BTN_START, vjdata.virtualjoydata.VIRJOY_BTN_START);
@@ -256,10 +272,10 @@ int main(void)
             emit(fd, EV_ABS, ABS_RX, vjdata.virtualjoydata.VIRJOY_ABS_RX);
             emit(fd, EV_ABS, ABS_RY, vjdata.virtualjoydata.VIRJOY_ABS_RY);
 
-            emit(fd, EV_ABS, ABS_BRAKE, vjdata.virtualjoydata.VIRJOY_ABS_LT);
-            emit(fd, EV_ABS, ABS_GAS, vjdata.virtualjoydata.VIRJOY_ABS_RT);
-            //emit(fd, EV_ABS, ABS_HAT0X, vjdata.virtualjoydata.VIRJOY_ABS_HAT0X);
-            //emit(fd, EV_ABS, ABS_HAT0Y, vjdata.virtualjoydata.VIRJOY_ABS_HAT0Y);
+            emit(fd, EV_ABS, ABS_Z, vjdata.virtualjoydata.VIRJOY_ABS_LT);
+            emit(fd, EV_ABS, ABS_RZ, vjdata.virtualjoydata.VIRJOY_ABS_RT);
+            emit(fd, EV_ABS, ABS_HAT0X, vjdata.virtualjoydata.VIRJOY_ABS_HAT0X);
+            emit(fd, EV_ABS, ABS_HAT0Y, vjdata.virtualjoydata.VIRJOY_ABS_HAT0Y);
 
             emit(fd, EV_SYN, SYN_REPORT, 0);
       

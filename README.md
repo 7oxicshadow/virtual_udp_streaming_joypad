@@ -17,15 +17,15 @@ Note: If you want to make the firewall-cmd permanent you need to add --permanent
 
 Streaming
 ---------
-Currently this has been tested using ffmpeg to stream video using the following command:
+~~Currently this has been tested using ffmpeg to stream video using the following command:~~
 
-ffmpeg -f x11grab -video_size 1920x1080 -framerate 60 -i :0.0 -threads 8 -preset ultrafast -vcodec libx264 -tune zerolatency -b:v 4M -x264opts intra-refresh=1 -f mpegts udp://TARGET_IP_HERE:1234?pkt_size=1316
+~~ffmpeg -f x11grab -video_size 1920x1080 -framerate 60 -i :0.0 -threads 8 -preset ultrafast -vcodec libx264 -tune zerolatency -b:v 4M -x264opts intra-refresh=1 -f mpegts udp://TARGET_IP_HERE:1234?pkt_size=~~
 
-Note: set TARGET_IP_HERE accordingly.
+~~Note: set TARGET_IP_HERE accordingly.~~
 
-On the receiving end it is best to use MPV as it seems to provide the lowest latency:
+~~On the receiving end it is best to use MPV as it seems to provide the lowest latency:~~
 
-mpv udp://127.0.0.1:1234 --no-cache --untimed --no-demuxer-thread --vd-lavc-threads=1 --profile=low-latency --hwdec=auto
+~~mpv udp://127.0.0.1:1234 --no-cache --untimed --no-demuxer-thread --vd-lavc-threads=1 --profile=low-latency --hwdec=auto~~
 
 General
 -------
