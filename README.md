@@ -6,6 +6,9 @@ At the moment this can be coupled with a friends project:
 
 https://github.com/TRACTOR-MAN/JOYPAD_UDP_TRANSMITTER
 
+Build
+-----
+gcc main.c -lpthread -o joyudp
 
 Port Info
 ---------
