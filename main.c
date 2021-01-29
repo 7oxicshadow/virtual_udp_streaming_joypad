@@ -11,6 +11,7 @@
 #include <arpa/inet.h> 
 #include <netinet/in.h>
 #include <sys/time.h>
+#include <getopt.h> /* getopt */
 
 #include "joydata.h"
 
@@ -22,8 +23,18 @@ char buffer[MAX_STRUCT_BYTES];
 struct sockaddr_in servaddr, cliaddr;
 struct timeval timeout={2,0}; //set timeout for 2 seconds
 
+typedef enum
+{
+    ANA_DIG_DPAD,
+    DIG_ONLY_DPAD,
+    ANA_ONLY_DPAD
+
+}dpad_type_e;
+
+
 unsigned int runme = 1U;
 unsigned int data_received = 0U;
+dpad_type_e required_dpad = ANA_DIG_DPAD;
 
 virjoy_un vjdata;
 virjoy_un vjdata_prev;
@@ -204,10 +215,47 @@ void UDP_init(void)
 }
 
 
-int main(void)
+int main( int argc, char *argv[] )
 {
     pthread_t thread_id;
     int fd;
+    
+    static const struct option longopts[] = {
+        {.name = "ana-dpad-only", .has_arg = no_argument, .val = 'a'},
+        {.name = "digi-dpad-only", .has_arg = no_argument, .val = 'd'},
+        {.name = "help", .has_arg = no_argument, .val = '?'},
+        {},
+    };
+    
+    for (;;) {
+        int opt = getopt_long(argc, argv, "ad?", longopts, NULL);
+        if (opt == -1)
+            break;
+        switch (opt) {
+        case 'a':
+            required_dpad = ANA_ONLY_DPAD;
+            printf("ANALOGUE DPAD ONLY ACTIVE\n");
+            break;
+        case 'd':
+            required_dpad = DIG_ONLY_DPAD;
+            printf("DIGITAL DPAD ONLY ACTIVE\n");
+            break;
+        case '?':
+        default:
+            printf("\n                     --------- Help ---------\n\n");
+            printf("     -a                   dpad press gives analogue events only.\n");
+            printf("     --ana-dpad-only\n\n");
+            printf("     -d                   dpad press gives digital events only.\n");
+            printf("     --digi-dpad-only\n\n");
+            printf("     -?                   This help.\n");
+            printf("     --help\n\n");            
+            
+            /* Unexpected option */
+            return 1;
+            
+            break;
+        }
+    }
     
     /* init mutex */
     if (pthread_mutex_init(&lock, NULL) != 0) { 
@@ -258,11 +306,15 @@ int main(void)
             //emit(fd, EV_KEY, BTN_DPAD_DOWN, vjdata.virtualjoydata.VIRJOY_BTN_DPAD_DOWN);
             //emit(fd, EV_KEY, BTN_DPAD_LEFT, vjdata.virtualjoydata.VIRJOY_BTN_DPAD_LEFT);
             
-            emit(fd, EV_KEY, BTN_TRIGGER_HAPPY1, vjdata.virtualjoydata.VIRJOY_BTN_DPAD_LEFT); //xpad uses these for DPAD
-            emit(fd, EV_KEY, BTN_TRIGGER_HAPPY2, vjdata.virtualjoydata.VIRJOY_BTN_DPAD_RIGHT);
-            emit(fd, EV_KEY, BTN_TRIGGER_HAPPY3, vjdata.virtualjoydata.VIRJOY_BTN_DPAD_UP);
-            emit(fd, EV_KEY, BTN_TRIGGER_HAPPY4, vjdata.virtualjoydata.VIRJOY_BTN_DPAD_DOWN);
-
+            if((required_dpad == DIG_ONLY_DPAD) ||
+               (required_dpad == ANA_DIG_DPAD))
+            {
+                emit(fd, EV_KEY, BTN_TRIGGER_HAPPY1, vjdata.virtualjoydata.VIRJOY_BTN_DPAD_LEFT); //xpad uses these for DPAD
+                emit(fd, EV_KEY, BTN_TRIGGER_HAPPY2, vjdata.virtualjoydata.VIRJOY_BTN_DPAD_RIGHT);
+                emit(fd, EV_KEY, BTN_TRIGGER_HAPPY3, vjdata.virtualjoydata.VIRJOY_BTN_DPAD_UP);
+                emit(fd, EV_KEY, BTN_TRIGGER_HAPPY4, vjdata.virtualjoydata.VIRJOY_BTN_DPAD_DOWN);
+            }
+            
             emit(fd, EV_KEY, BTN_SELECT, vjdata.virtualjoydata.VIRJOY_BTN_SELECT);
             emit(fd, EV_KEY, BTN_START, vjdata.virtualjoydata.VIRJOY_BTN_START);
             emit(fd, EV_KEY, BTN_MODE, vjdata.virtualjoydata.VIRJOY_BTN_MODE);
@@ -274,15 +326,15 @@ int main(void)
 
             emit(fd, EV_ABS, ABS_Z, vjdata.virtualjoydata.VIRJOY_ABS_LT);
             emit(fd, EV_ABS, ABS_RZ, vjdata.virtualjoydata.VIRJOY_ABS_RT);
-            emit(fd, EV_ABS, ABS_HAT0X, vjdata.virtualjoydata.VIRJOY_ABS_HAT0X);
-            emit(fd, EV_ABS, ABS_HAT0Y, vjdata.virtualjoydata.VIRJOY_ABS_HAT0Y);
-
+            
+            if((required_dpad == ANA_ONLY_DPAD) ||
+               (required_dpad == ANA_DIG_DPAD))
+            {
+                emit(fd, EV_ABS, ABS_HAT0X, vjdata.virtualjoydata.VIRJOY_ABS_HAT0X);
+                emit(fd, EV_ABS, ABS_HAT0Y, vjdata.virtualjoydata.VIRJOY_ABS_HAT0Y);
+            }
+            
             emit(fd, EV_SYN, SYN_REPORT, 0);
-      
-            //printf("%d - %d - %d - %d \n", vjdata.virtualjoydata.VIRJOY_BTN_DPAD_UP
-            //                       , vjdata.virtualjoydata.VIRJOY_BTN_DPAD_DOWN
-            //                       , vjdata.virtualjoydata.VIRJOY_BTN_DPAD_LEFT
-            //                       , vjdata.virtualjoydata.VIRJOY_BTN_DPAD_RIGHT);
 
             /* update the previous data ready for the next pass */
             memcpy(vjdata_prev.raw, vjdata.raw, sizeof(vjdata));
