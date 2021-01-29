@@ -27,6 +27,9 @@ Streaming
 
 ~~mpv udp://127.0.0.1:1234 --no-cache --untimed --no-demuxer-thread --vd-lavc-threads=1 --profile=low-latency --hwdec=auto~~
 
+The following project provides far superior latency than ffmpeg:
+https://github.com/raspi/kaukosohva
+
 General
 -------
 Over time I hope to integrate ffmpeg into the program to make it an all in one solution but for the time being having it independant appears to work well.
