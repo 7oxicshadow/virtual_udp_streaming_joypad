@@ -15,7 +15,7 @@
 
 #include "joydata.h"
 
-#define PORT             1235 
+#define DEFAULT_PORT     1235 
 #define MAX_STRUCT_BYTES 40
 
 int sockfd;
@@ -35,6 +35,7 @@ typedef enum
 unsigned int runme = 1U;
 unsigned int data_received = 0U;
 dpad_type_e required_dpad = ANA_DIG_DPAD;
+unsigned int target_port = DEFAULT_PORT;
 
 virjoy_un vjdata;
 virjoy_un vjdata_prev;
@@ -203,7 +204,7 @@ void UDP_init(void)
     servaddr.sin_family = AF_INET; // IPv4 
     servaddr.sin_addr.s_addr = INADDR_ANY; 
     //addr.sin_addr.s_addr = inet_addr(192.168.1.1);
-    servaddr.sin_port = htons(PORT); 
+    servaddr.sin_port = htons(target_port); 
 
     // Bind the socket with the server address 
     if ( bind(sockfd, (const struct sockaddr *)&servaddr,  
@@ -212,6 +213,8 @@ void UDP_init(void)
         perror("bind failed"); 
         exit(EXIT_FAILURE); 
     } 
+    
+    printf("Using Port : %d\n", target_port);
 }
 
 
@@ -223,12 +226,14 @@ int main( int argc, char *argv[] )
     static const struct option longopts[] = {
         {.name = "ana-dpad-only", .has_arg = no_argument, .val = 'a'},
         {.name = "digi-dpad-only", .has_arg = no_argument, .val = 'd'},
+        {.name = "port", .has_arg = required_argument, .val = 'p'},
         {.name = "help", .has_arg = no_argument, .val = '?'},
         {},
     };
     
     for (;;) {
-        int opt = getopt_long(argc, argv, "ad?", longopts, NULL);
+        /* DONT FORGET ':' after each parameter that expects an argument */
+        int opt = getopt_long(argc, argv, "adp:?", longopts, NULL);
         if (opt == -1)
             break;
         switch (opt) {
@@ -240,13 +245,18 @@ int main( int argc, char *argv[] )
             required_dpad = DIG_ONLY_DPAD;
             printf("DIGITAL DPAD ONLY ACTIVE\n");
             break;
+        case 'p':
+            target_port = atoi(optarg);
+            break;
         case '?':
         default:
-            printf("\n                     --------- Help ---------\n\n");
-            printf("     -a                   dpad press gives analogue events only.\n");
+            printf("\n              --------- UDP Joypad Help ---------\n\n");
+            printf("     -a                   Dpad press gives analogue events only.\n");
             printf("     --ana-dpad-only\n\n");
-            printf("     -d                   dpad press gives digital events only.\n");
+            printf("     -d                   Dpad press gives digital events only.\n");
             printf("     --digi-dpad-only\n\n");
+            printf("     -p                   Override default UDP port.\n");
+            printf("     --port\n\n");
             printf("     -?                   This help.\n");
             printf("     --help\n\n");            
             
