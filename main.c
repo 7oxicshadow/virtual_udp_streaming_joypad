@@ -37,10 +37,36 @@ unsigned int data_received = 0U;
 dpad_type_e required_dpad = ANA_DIG_DPAD;
 unsigned int target_port = DEFAULT_PORT;
 
-virjoy_un vjdata;
-virjoy_un vjdata_prev;
+virjoy_un vjdata_p1;
+virjoy_un vjdata_p2;
+virjoy_un vjdata_p3;
+virjoy_un vjdata_p4;
 
-pthread_mutex_t lock;
+virjoy_un vjdata_prev_p1;
+virjoy_un vjdata_prev_p2;
+virjoy_un vjdata_prev_p3;
+virjoy_un vjdata_prev_p4;
+
+pthread_mutex_t lock_p1;
+pthread_mutex_t lock_p2;
+pthread_mutex_t lock_p3;
+pthread_mutex_t lock_p4;
+
+/* Prototypes */
+void process_received_data(virjoy_un *data, virjoy_un *data_prev, int *filedesc, pthread_mutex_t *lock);
+
+/* Very basic checksum. Does not deal with swapped bytes or other simple failures but more than good enough
+   for the purpose of this project. If the checksum is included at the end of the passed structure it will
+   return zero if the checksum matches. If the checksum is not passed at the end of the structure it will
+   return the calculated checksum value for the passed data.*/
+unsigned char simple_checksum (unsigned char *ptr, size_t sz) 
+{
+    unsigned char chk = 0;
+    while (sz-- != 0)
+        chk -= *ptr++;
+    return chk;
+}
+
 
 /* Thread to read UDP events */
 void *UDP_Read_Thread(void *vargp) 
@@ -66,21 +92,22 @@ void *UDP_Read_Thread(void *vargp)
                 printf("First Packet Received\n");
             }
             
-            /* lock the data so that the main thread will not read during write */
-            pthread_mutex_lock(&lock); 
+            if ( simple_checksum(buffer, sizeof(vjdata_p1)) == 0)
+            {
+            
+                /* lock the data so that the main thread will not read during write */
+                pthread_mutex_lock(&lock_p1); 
 
-            memset(&vjdata, 0, sizeof(vjdata));
-            memcpy(vjdata.raw, buffer, sizeof(vjdata));
+                memset(&vjdata_p1, 0, sizeof(vjdata_p1));
+                memcpy(vjdata_p1.raw, buffer, sizeof(vjdata_p1));
 
-            //printf("UDP data written\n");
-         
-            //int i;
-
-            //for(i=0; i<sizeof(vjdata.raw); i++)
-            //   printf("%d - \n", vjdata.raw[i]);
-
-            /* unlock the data to allow the main thread to resume */
-            pthread_mutex_unlock(&lock);
+                /* unlock the data to allow the main thread to resume */
+                pthread_mutex_unlock(&lock_p1);
+            }
+            else
+            {
+                printf("Checksum Failed\n");
+            }
         }
         //else
            //printf("UDP Timeout\n");    
@@ -217,11 +244,76 @@ void UDP_init(void)
     printf("Using Port : %d\n", target_port);
 }
 
+void process_received_data(virjoy_un *data, virjoy_un *data_prev, int *filedesc, pthread_mutex_t *lock)
+{
+    if(memcmp(data->raw, data_prev->raw, sizeof(data)) != 0)
+    {
+        /* lock the data so that the UDP thread can not write to it */
+        pthread_mutex_lock(lock);
+
+        emit(*filedesc, EV_KEY, BTN_A, data->virtualjoydata.VIRJOY_BTN_A);
+        emit(*filedesc, EV_KEY, BTN_B, data->virtualjoydata.VIRJOY_BTN_B);
+        emit(*filedesc, EV_KEY, BTN_X, data->virtualjoydata.VIRJOY_BTN_X);
+        emit(*filedesc, EV_KEY, BTN_Y, data->virtualjoydata.VIRJOY_BTN_Y);
+
+        emit(*filedesc, EV_KEY, BTN_TL, data->virtualjoydata.VIRJOY_BTN_TL);
+        emit(*filedesc, EV_KEY, BTN_TR, data->virtualjoydata.VIRJOY_BTN_TR);
+        emit(*filedesc, EV_KEY, BTN_THUMBL, data->virtualjoydata.VIRJOY_BTN_THUMBL);
+        emit(*filedesc, EV_KEY, BTN_THUMBR, data->virtualjoydata.VIRJOY_BTN_THUMBR);
+
+        //emit(*filedesc, EV_KEY, BTN_DPAD_UP, data->virtualjoydata.VIRJOY_BTN_DPAD_UP);
+        //emit(*filedesc, EV_KEY, BTN_DPAD_RIGHT, data->virtualjoydata.VIRJOY_BTN_DPAD_RIGHT);
+        //emit(*filedesc, EV_KEY, BTN_DPAD_DOWN, data->virtualjoydata.VIRJOY_BTN_DPAD_DOWN);
+        //emit(*filedesc, EV_KEY, BTN_DPAD_LEFT, data->virtualjoydata.VIRJOY_BTN_DPAD_LEFT);
+        
+        if((required_dpad == DIG_ONLY_DPAD) ||
+            (required_dpad == ANA_DIG_DPAD))
+        {
+            emit(*filedesc, EV_KEY, BTN_TRIGGER_HAPPY1, data->virtualjoydata.VIRJOY_BTN_DPAD_LEFT); //xpad uses these for DPAD
+            emit(*filedesc, EV_KEY, BTN_TRIGGER_HAPPY2, data->virtualjoydata.VIRJOY_BTN_DPAD_RIGHT);
+            emit(*filedesc, EV_KEY, BTN_TRIGGER_HAPPY3, data->virtualjoydata.VIRJOY_BTN_DPAD_UP);
+            emit(*filedesc, EV_KEY, BTN_TRIGGER_HAPPY4, data->virtualjoydata.VIRJOY_BTN_DPAD_DOWN);
+        }
+        
+        emit(*filedesc, EV_KEY, BTN_SELECT, data->virtualjoydata.VIRJOY_BTN_SELECT);
+        emit(*filedesc, EV_KEY, BTN_START, data->virtualjoydata.VIRJOY_BTN_START);
+        emit(*filedesc, EV_KEY, BTN_MODE, data->virtualjoydata.VIRJOY_BTN_MODE);
+
+        emit(*filedesc, EV_ABS, ABS_X, data->virtualjoydata.VIRJOY_ABS_X);
+        emit(*filedesc, EV_ABS, ABS_Y, data->virtualjoydata.VIRJOY_ABS_Y);
+        emit(*filedesc, EV_ABS, ABS_RX, data->virtualjoydata.VIRJOY_ABS_RX);
+        emit(*filedesc, EV_ABS, ABS_RY, data->virtualjoydata.VIRJOY_ABS_RY);
+
+        emit(*filedesc, EV_ABS, ABS_Z, data->virtualjoydata.VIRJOY_ABS_LT);
+        emit(*filedesc, EV_ABS, ABS_RZ, data->virtualjoydata.VIRJOY_ABS_RT);
+        
+        if((required_dpad == ANA_ONLY_DPAD) ||
+            (required_dpad == ANA_DIG_DPAD))
+        {
+            emit(*filedesc, EV_ABS, ABS_HAT0X, data->virtualjoydata.VIRJOY_ABS_HAT0X);
+            emit(*filedesc, EV_ABS, ABS_HAT0Y, data->virtualjoydata.VIRJOY_ABS_HAT0Y);
+        }
+        
+        emit(*filedesc, EV_SYN, SYN_REPORT, 0);
+
+        /* update the previous data ready for the next pass */
+        memcpy(data_prev->raw, data->raw, sizeof(data));
+
+        /* remove mutex lock */
+        pthread_mutex_unlock(lock);
+    }
+}
 
 int main( int argc, char *argv[] )
 {
-    pthread_t thread_id;
-    int fd;
+    pthread_t thread_id_p1;
+    pthread_t thread_id_p2;
+    pthread_t thread_id_p3;
+    pthread_t thread_id_p4;
+    int fd_p1;
+    int fd_p2;
+    int fd_p3;
+    int fd_p4;
     
     static const struct option longopts[] = {
         {.name = "ana-dpad-only", .has_arg = no_argument, .val = 'a'},
@@ -268,23 +360,47 @@ int main( int argc, char *argv[] )
     }
     
     /* init mutex */
-    if (pthread_mutex_init(&lock, NULL) != 0) { 
+    if (pthread_mutex_init(&lock_p1, NULL) != 0) { 
+        printf("\n mutex init has failed\n"); 
+        return 1; 
+    } 
+    if (pthread_mutex_init(&lock_p2, NULL) != 0) { 
+        printf("\n mutex init has failed\n"); 
+        return 1; 
+    } 
+    if (pthread_mutex_init(&lock_p3, NULL) != 0) { 
+        printf("\n mutex init has failed\n"); 
+        return 1; 
+    } 
+    if (pthread_mutex_init(&lock_p4, NULL) != 0) { 
         printf("\n mutex init has failed\n"); 
         return 1; 
     } 
 
     //clear the virtual joystick data structure
-    memset(&vjdata, 0, sizeof(vjdata));
+    memset(&vjdata_p1, 0, sizeof(vjdata_p1));
+    memset(&vjdata_p2, 0, sizeof(vjdata_p2));
+    memset(&vjdata_p3, 0, sizeof(vjdata_p3));
+    memset(&vjdata_p4, 0, sizeof(vjdata_p4));
 
     //init the udp device
     UDP_init();
 
     //create the UDP processing thread
-    thread_init(&thread_id);
+    thread_init(&thread_id_p1);
+    //thread_init(&thread_id_p2);
+    //thread_init(&thread_id_p3);
+    //thread_init(&thread_id_p4);
 
     //init the virtual joystick
-    if(uinput_init(&fd) < 0)
-        exit(EXIT_FAILURE); 
+    if(uinput_init(&fd_p1) < 0)
+        exit(EXIT_FAILURE);
+    //if(uinput_init(&fd_p2) < 0)
+    //    exit(EXIT_FAILURE); 
+    //if(uinput_init(&fd_p3) < 0)
+    //    exit(EXIT_FAILURE); 
+    //if(uinput_init(&fd_p4) < 0)
+    //    exit(EXIT_FAILURE); 
 
     //register the interrpt handler
     signal(SIGINT, intHandler);
@@ -294,64 +410,10 @@ int main( int argc, char *argv[] )
     /* start updating the controller */
     while (runme) {
 
-        //check for new data
-        if(memcmp(vjdata.raw, vjdata_prev.raw, sizeof(vjdata)) != 0)
-        {
-            
-            /* lock the data so that the UDP thread can not write to it */
-            pthread_mutex_lock(&lock);
-
-            emit(fd, EV_KEY, BTN_A, vjdata.virtualjoydata.VIRJOY_BTN_A);
-            emit(fd, EV_KEY, BTN_B, vjdata.virtualjoydata.VIRJOY_BTN_B);
-            emit(fd, EV_KEY, BTN_X, vjdata.virtualjoydata.VIRJOY_BTN_X);
-            emit(fd, EV_KEY, BTN_Y, vjdata.virtualjoydata.VIRJOY_BTN_Y);
-
-            emit(fd, EV_KEY, BTN_TL, vjdata.virtualjoydata.VIRJOY_BTN_TL);
-            emit(fd, EV_KEY, BTN_TR, vjdata.virtualjoydata.VIRJOY_BTN_TR);
-            emit(fd, EV_KEY, BTN_THUMBL, vjdata.virtualjoydata.VIRJOY_BTN_THUMBL);
-            emit(fd, EV_KEY, BTN_THUMBR, vjdata.virtualjoydata.VIRJOY_BTN_THUMBR);
-
-            //emit(fd, EV_KEY, BTN_DPAD_UP, vjdata.virtualjoydata.VIRJOY_BTN_DPAD_UP);
-            //emit(fd, EV_KEY, BTN_DPAD_RIGHT, vjdata.virtualjoydata.VIRJOY_BTN_DPAD_RIGHT);
-            //emit(fd, EV_KEY, BTN_DPAD_DOWN, vjdata.virtualjoydata.VIRJOY_BTN_DPAD_DOWN);
-            //emit(fd, EV_KEY, BTN_DPAD_LEFT, vjdata.virtualjoydata.VIRJOY_BTN_DPAD_LEFT);
-            
-            if((required_dpad == DIG_ONLY_DPAD) ||
-               (required_dpad == ANA_DIG_DPAD))
-            {
-                emit(fd, EV_KEY, BTN_TRIGGER_HAPPY1, vjdata.virtualjoydata.VIRJOY_BTN_DPAD_LEFT); //xpad uses these for DPAD
-                emit(fd, EV_KEY, BTN_TRIGGER_HAPPY2, vjdata.virtualjoydata.VIRJOY_BTN_DPAD_RIGHT);
-                emit(fd, EV_KEY, BTN_TRIGGER_HAPPY3, vjdata.virtualjoydata.VIRJOY_BTN_DPAD_UP);
-                emit(fd, EV_KEY, BTN_TRIGGER_HAPPY4, vjdata.virtualjoydata.VIRJOY_BTN_DPAD_DOWN);
-            }
-            
-            emit(fd, EV_KEY, BTN_SELECT, vjdata.virtualjoydata.VIRJOY_BTN_SELECT);
-            emit(fd, EV_KEY, BTN_START, vjdata.virtualjoydata.VIRJOY_BTN_START);
-            emit(fd, EV_KEY, BTN_MODE, vjdata.virtualjoydata.VIRJOY_BTN_MODE);
-
-            emit(fd, EV_ABS, ABS_X, vjdata.virtualjoydata.VIRJOY_ABS_X);
-            emit(fd, EV_ABS, ABS_Y, vjdata.virtualjoydata.VIRJOY_ABS_Y);
-            emit(fd, EV_ABS, ABS_RX, vjdata.virtualjoydata.VIRJOY_ABS_RX);
-            emit(fd, EV_ABS, ABS_RY, vjdata.virtualjoydata.VIRJOY_ABS_RY);
-
-            emit(fd, EV_ABS, ABS_Z, vjdata.virtualjoydata.VIRJOY_ABS_LT);
-            emit(fd, EV_ABS, ABS_RZ, vjdata.virtualjoydata.VIRJOY_ABS_RT);
-            
-            if((required_dpad == ANA_ONLY_DPAD) ||
-               (required_dpad == ANA_DIG_DPAD))
-            {
-                emit(fd, EV_ABS, ABS_HAT0X, vjdata.virtualjoydata.VIRJOY_ABS_HAT0X);
-                emit(fd, EV_ABS, ABS_HAT0Y, vjdata.virtualjoydata.VIRJOY_ABS_HAT0Y);
-            }
-            
-            emit(fd, EV_SYN, SYN_REPORT, 0);
-
-            /* update the previous data ready for the next pass */
-            memcpy(vjdata_prev.raw, vjdata.raw, sizeof(vjdata));
-
-            /* remove mutex lock */
-            pthread_mutex_unlock(&lock);
-        }
+        process_received_data(&vjdata_p1, &vjdata_prev_p1, &fd_p1, &lock_p1);
+        //process_received_data(&vjdata_p2, &vjdata_prev_p2, &fd_p2, &lock_p2);
+        //process_received_data(&vjdata_p3, &vjdata_prev_p3, &fd_p3, &lock_p3);
+        //process_received_data(&vjdata_p4, &vjdata_prev_p4, &fd_p4, &lock_p4);
 
         /* Wait 10ms before trying again */
         usleep(10000);
@@ -367,10 +429,20 @@ int main( int argc, char *argv[] )
 
     pthread_exit(NULL); 
 
-    pthread_mutex_destroy(&lock); 
+    pthread_mutex_destroy(&lock_p1);
+    //pthread_mutex_destroy(&lock_p2); 
+    //pthread_mutex_destroy(&lock_p3); 
+    //pthread_mutex_destroy(&lock_p4); 
 
-    ioctl(fd, UI_DEV_DESTROY);
-    close(fd);
+    ioctl(fd_p1, UI_DEV_DESTROY);
+    //ioctl(fd_p2, UI_DEV_DESTROY);
+    //ioctl(fd_p3, UI_DEV_DESTROY);
+    //ioctl(fd_p4, UI_DEV_DESTROY);
+    
+    close(fd_p1);
+    //close(fd_p2);
+    //close(fd_p3);
+    //close(fd_p4);
 
     return 0;
 }

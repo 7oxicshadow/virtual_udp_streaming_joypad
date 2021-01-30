@@ -32,6 +32,7 @@ typedef struct virjoy_st_
    short VIRJOY_ABS_HAT0X;
    short VIRJOY_ABS_HAT0Y;
 
+   unsigned char VIRJOY_PLAYER;
    unsigned char VIRJOY_CHECKSUM;
    
 }virjoy_st;
