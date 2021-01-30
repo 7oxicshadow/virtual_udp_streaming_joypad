@@ -36,6 +36,7 @@ unsigned int runme = 1U;
 unsigned int data_received = 0U;
 dpad_type_e required_dpad = ANA_DIG_DPAD;
 unsigned int target_port = DEFAULT_PORT;
+unsigned int num_virt_joypad = 1U;
 
 virjoy_un vjdata_p1;
 virjoy_un vjdata_p2;
@@ -72,6 +73,7 @@ unsigned char simple_checksum (unsigned char *ptr, size_t sz)
 void *UDP_Read_Thread(void *vargp) 
 { 
     int len, n;
+    virjoy_st *joyptr;
 
     len = sizeof(cliaddr);
    
@@ -92,17 +94,54 @@ void *UDP_Read_Thread(void *vargp)
                 printf("First Packet Received\n");
             }
             
-            if ( simple_checksum(buffer, sizeof(vjdata_p1)) == 0)
+            if ( simple_checksum(buffer, sizeof(virjoy_st)) == 0)
             {
-            
-                /* lock the data so that the main thread will not read during write */
-                pthread_mutex_lock(&lock_p1); 
-
-                memset(&vjdata_p1, 0, sizeof(vjdata_p1));
-                memcpy(vjdata_p1.raw, buffer, sizeof(vjdata_p1));
-
-                /* unlock the data to allow the main thread to resume */
-                pthread_mutex_unlock(&lock_p1);
+                joyptr = (virjoy_st*)buffer;
+                
+                switch(joyptr->VIRJOY_PLAYER)
+                {
+                    case 0U:
+                    {
+                        pthread_mutex_lock(&lock_p1); 
+                        memset(&vjdata_p1, 0, sizeof(virjoy_st));
+                        memcpy(vjdata_p1.raw, buffer, sizeof(virjoy_st));
+                        pthread_mutex_unlock(&lock_p1);
+                    }
+                    break;
+                    
+                    case 1U:
+                    {
+                        pthread_mutex_lock(&lock_p2); 
+                        memset(&vjdata_p2, 0, sizeof(virjoy_st));
+                        memcpy(vjdata_p2.raw, buffer, sizeof(virjoy_st));
+                        pthread_mutex_unlock(&lock_p2);
+                    }
+                    break;
+                    
+                    case 2U:
+                    {
+                        pthread_mutex_lock(&lock_p3); 
+                        memset(&vjdata_p3, 0, sizeof(virjoy_st));
+                        memcpy(vjdata_p3.raw, buffer, sizeof(virjoy_st));
+                        pthread_mutex_unlock(&lock_p3);
+                    }
+                    break;
+                    
+                    case 3U:
+                    {
+                        pthread_mutex_lock(&lock_p4); 
+                        memset(&vjdata_p4, 0, sizeof(virjoy_st));
+                        memcpy(vjdata_p4.raw, buffer, sizeof(virjoy_st));
+                        pthread_mutex_unlock(&lock_p4);
+                    }
+                    break;
+                    
+                    default:
+                    {
+                        printf("Requested joystick out of range\n");
+                    }
+                    break;
+                }
             }
             else
             {
@@ -112,6 +151,8 @@ void *UDP_Read_Thread(void *vargp)
         //else
            //printf("UDP Timeout\n");    
     } 
+    
+    pthread_exit(NULL); 
 } 
 
 /* Interrupt handler to close the program */
@@ -310,14 +351,15 @@ int main( int argc, char *argv[] )
     pthread_t thread_id_p2;
     pthread_t thread_id_p3;
     pthread_t thread_id_p4;
-    int fd_p1;
-    int fd_p2;
-    int fd_p3;
-    int fd_p4;
+    int fd_p1 = -1;
+    int fd_p2 = -1;
+    int fd_p3 = -1;
+    int fd_p4 = -1;
     
     static const struct option longopts[] = {
         {.name = "ana-dpad-only", .has_arg = no_argument, .val = 'a'},
         {.name = "digi-dpad-only", .has_arg = no_argument, .val = 'd'},
+        {.name = "joypad-count", .has_arg = required_argument, .val = 'j'},
         {.name = "port", .has_arg = required_argument, .val = 'p'},
         {.name = "help", .has_arg = no_argument, .val = '?'},
         {},
@@ -325,7 +367,7 @@ int main( int argc, char *argv[] )
     
     for (;;) {
         /* DONT FORGET ':' after each parameter that expects an argument */
-        int opt = getopt_long(argc, argv, "adp:?", longopts, NULL);
+        int opt = getopt_long(argc, argv, "adj:p:?", longopts, NULL);
         if (opt == -1)
             break;
         switch (opt) {
@@ -337,6 +379,9 @@ int main( int argc, char *argv[] )
             required_dpad = DIG_ONLY_DPAD;
             printf("DIGITAL DPAD ONLY ACTIVE\n");
             break;
+        case 'j':
+            num_virt_joypad = atoi(optarg);
+            break;
         case 'p':
             target_port = atoi(optarg);
             break;
@@ -347,41 +392,87 @@ int main( int argc, char *argv[] )
             printf("     --ana-dpad-only\n\n");
             printf("     -d                   Dpad press gives digital events only.\n");
             printf("     --digi-dpad-only\n\n");
+            printf("     -j                   Number of virtual joypads to create.\n");
+            printf("     --joypad-count\n\n");
             printf("     -p                   Override default UDP port.\n");
             printf("     --port\n\n");
             printf("     -?                   This help.\n");
             printf("     --help\n\n");            
-            
+                        
             /* Unexpected option */
             return 1;
             
             break;
         }
     }
-    
-    /* init mutex */
-    if (pthread_mutex_init(&lock_p1, NULL) != 0) { 
-        printf("\n mutex init has failed\n"); 
-        return 1; 
-    } 
-    if (pthread_mutex_init(&lock_p2, NULL) != 0) { 
-        printf("\n mutex init has failed\n"); 
-        return 1; 
-    } 
-    if (pthread_mutex_init(&lock_p3, NULL) != 0) { 
-        printf("\n mutex init has failed\n"); 
-        return 1; 
-    } 
-    if (pthread_mutex_init(&lock_p4, NULL) != 0) { 
-        printf("\n mutex init has failed\n"); 
-        return 1; 
-    } 
 
-    //clear the virtual joystick data structure
-    memset(&vjdata_p1, 0, sizeof(vjdata_p1));
-    memset(&vjdata_p2, 0, sizeof(vjdata_p2));
-    memset(&vjdata_p3, 0, sizeof(vjdata_p3));
-    memset(&vjdata_p4, 0, sizeof(vjdata_p4));
+    /* Create the virtual joypad(s) 
+       Do this in reverse to take advantage of fall through. */
+    switch(num_virt_joypad)
+    {
+        case 4U:
+        {
+            /* init mutex */
+            if (pthread_mutex_init(&lock_p4, NULL) != 0) { 
+                printf("\n mutex init has failed\n"); 
+                return 1; 
+            } 
+            memset(&vjdata_p4, 0, sizeof(vjdata_p4));
+            if(uinput_init(&fd_p4) < 0)
+                exit(EXIT_FAILURE);
+            printf("Created Joypad 4\n");
+        }
+        
+        case 3U:
+        {
+            /* init mutex */
+            if (pthread_mutex_init(&lock_p3, NULL) != 0) { 
+                printf("\n mutex init has failed\n"); 
+                return 1; 
+            } 
+            memset(&vjdata_p3, 0, sizeof(vjdata_p3));
+            if(uinput_init(&fd_p3) < 0)
+                exit(EXIT_FAILURE);
+            printf("Created Joypad 3\n");
+        }
+
+        case 2U:
+        {
+            /* init mutex */
+            if (pthread_mutex_init(&lock_p2, NULL) != 0) { 
+                printf("\n mutex init has failed\n"); 
+                return 1; 
+            } 
+            memset(&vjdata_p2, 0, sizeof(vjdata_p2));
+            if(uinput_init(&fd_p2) < 0)
+                exit(EXIT_FAILURE);
+            printf("Created Joypad 2\n");
+        }
+        
+        case 1U:
+        {
+            /* init mutex */
+            if (pthread_mutex_init(&lock_p1, NULL) != 0) { 
+                printf("\n mutex init has failed\n"); 
+                return 1; 
+            } 
+            //clear the virtual joystick data structure
+            memset(&vjdata_p1, 0, sizeof(vjdata_p1));
+            if(uinput_init(&fd_p1) < 0)
+                exit(EXIT_FAILURE);
+            printf("Created Joypad 1\n");
+        }
+        break;
+
+        default:
+        {
+            /* out of range */
+            printf("Error: Joypad out of range : %d\n", num_virt_joypad);
+            return 1;
+        }
+        break;
+        
+    }
 
     //init the udp device
     UDP_init();
@@ -392,15 +483,6 @@ int main( int argc, char *argv[] )
     //thread_init(&thread_id_p3);
     //thread_init(&thread_id_p4);
 
-    //init the virtual joystick
-    if(uinput_init(&fd_p1) < 0)
-        exit(EXIT_FAILURE);
-    //if(uinput_init(&fd_p2) < 0)
-    //    exit(EXIT_FAILURE); 
-    //if(uinput_init(&fd_p3) < 0)
-    //    exit(EXIT_FAILURE); 
-    //if(uinput_init(&fd_p4) < 0)
-    //    exit(EXIT_FAILURE); 
 
     //register the interrpt handler
     signal(SIGINT, intHandler);
@@ -410,10 +492,14 @@ int main( int argc, char *argv[] )
     /* start updating the controller */
     while (runme) {
 
-        process_received_data(&vjdata_p1, &vjdata_prev_p1, &fd_p1, &lock_p1);
-        //process_received_data(&vjdata_p2, &vjdata_prev_p2, &fd_p2, &lock_p2);
-        //process_received_data(&vjdata_p3, &vjdata_prev_p3, &fd_p3, &lock_p3);
-        //process_received_data(&vjdata_p4, &vjdata_prev_p4, &fd_p4, &lock_p4);
+        if(fd_p1 > -1)
+            process_received_data(&vjdata_p1, &vjdata_prev_p1, &fd_p1, &lock_p1);
+        if(fd_p2 > -1)
+            process_received_data(&vjdata_p2, &vjdata_prev_p2, &fd_p2, &lock_p2);
+        if(fd_p3 > -1)
+            process_received_data(&vjdata_p3, &vjdata_prev_p3, &fd_p3, &lock_p3);
+        if(fd_p4 > -1)
+            process_received_data(&vjdata_p4, &vjdata_prev_p4, &fd_p4, &lock_p4);
 
         /* Wait 10ms before trying again */
         usleep(10000);
@@ -426,23 +512,34 @@ int main( int argc, char *argv[] )
     sleep(1);
 
     printf("\nDestroying device\n");
-
-    pthread_exit(NULL); 
-
-    pthread_mutex_destroy(&lock_p1);
-    //pthread_mutex_destroy(&lock_p2); 
-    //pthread_mutex_destroy(&lock_p3); 
-    //pthread_mutex_destroy(&lock_p4); 
-
-    ioctl(fd_p1, UI_DEV_DESTROY);
-    //ioctl(fd_p2, UI_DEV_DESTROY);
-    //ioctl(fd_p3, UI_DEV_DESTROY);
-    //ioctl(fd_p4, UI_DEV_DESTROY);
     
-    close(fd_p1);
-    //close(fd_p2);
-    //close(fd_p3);
-    //close(fd_p4);
+    if(fd_p1 > -1){
+        pthread_mutex_destroy(&lock_p1);
+        ioctl(fd_p1, UI_DEV_DESTROY);
+        close(fd_p1);
+        printf("Closed Joypad 1\n");
+    }
+    
+    if(fd_p2 > -1){
+        pthread_mutex_destroy(&lock_p2);
+        ioctl(fd_p2, UI_DEV_DESTROY);
+        close(fd_p2);
+        printf("Closed Joypad 2\n");
+    }
+
+    if(fd_p3 > -1){
+        pthread_mutex_destroy(&lock_p3);
+        ioctl(fd_p3, UI_DEV_DESTROY);
+        close(fd_p3);
+        printf("Closed Joypad 3\n");
+    }
+    
+    if(fd_p4 > -1){
+        pthread_mutex_destroy(&lock_p4);
+        ioctl(fd_p4, UI_DEV_DESTROY);
+        close(fd_p4);
+        printf("Closed Joypad 4\n");
+    }
 
     return 0;
 }
