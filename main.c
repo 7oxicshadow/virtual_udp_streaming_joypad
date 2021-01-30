@@ -72,7 +72,7 @@ unsigned char simple_checksum (unsigned char *ptr, size_t sz)
 /* Thread to read UDP events */
 void *UDP_Read_Thread(void *vargp) 
 { 
-    int len, n;
+    int len, n, i;
     virjoy_st *joyptr;
 
     len = sizeof(cliaddr);
@@ -81,6 +81,7 @@ void *UDP_Read_Thread(void *vargp)
     {
 
         //echo "This is a test" > /dev/udp/127.0.0.1/1235 //use this to test from terminal
+        //00 00 00 00 00 00 00 00 00 00 01 80 01 80 00 00 00 00 01 fd
 
         n = recvfrom(sockfd, (char *)buffer, MAX_STRUCT_BYTES,  
                 MSG_WAITALL, ( struct sockaddr *) &cliaddr, 
@@ -94,13 +95,23 @@ void *UDP_Read_Thread(void *vargp)
                 printf("First Packet Received\n");
             }
             
+            /*
+            for(i=0; i<sizeof(virjoy_st); i++)
+            {    
+                printf("%02x ", (unsigned char)buffer[i]);
+            }
+            
+            printf("\n");
+            */
+
             if ( simple_checksum(buffer, sizeof(virjoy_st)) == 0)
+            //if (1)
             {
                 joyptr = (virjoy_st*)buffer;
-                
+                                
                 switch(joyptr->VIRJOY_PLAYER)
                 {
-                    case 0U:
+                    case 1U:
                     {
                         pthread_mutex_lock(&lock_p1); 
                         memset(&vjdata_p1, 0, sizeof(virjoy_st));
@@ -109,7 +120,7 @@ void *UDP_Read_Thread(void *vargp)
                     }
                     break;
                     
-                    case 1U:
+                    case 2U:
                     {
                         pthread_mutex_lock(&lock_p2); 
                         memset(&vjdata_p2, 0, sizeof(virjoy_st));
@@ -118,7 +129,7 @@ void *UDP_Read_Thread(void *vargp)
                     }
                     break;
                     
-                    case 2U:
+                    case 3U:
                     {
                         pthread_mutex_lock(&lock_p3); 
                         memset(&vjdata_p3, 0, sizeof(virjoy_st));
@@ -127,7 +138,7 @@ void *UDP_Read_Thread(void *vargp)
                     }
                     break;
                     
-                    case 3U:
+                    case 4U:
                     {
                         pthread_mutex_lock(&lock_p4); 
                         memset(&vjdata_p4, 0, sizeof(virjoy_st));
