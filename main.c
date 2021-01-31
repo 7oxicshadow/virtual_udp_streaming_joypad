@@ -420,72 +420,68 @@ int main( int argc, char *argv[] )
         }
     }
 
-    /* Create the virtual joypad(s) 
-       Do this in reverse to take advantage of fall through. */
-    switch(num_virt_joypad)
+    // range check num_virt_joypad
+    if ((num_virt_joypad < 1U) ||
+        (num_virt_joypad > 4U))
     {
-        case 4U:
-        {
-            /* init mutex */
-            if (pthread_mutex_init(&lock_p4, NULL) != 0) { 
-                printf("\n mutex init has failed\n"); 
-                return 1; 
-            } 
-            memset(&vjdata_p4, 0, sizeof(vjdata_p4));
-            if(uinput_init(&fd_p4) < 0)
-                exit(EXIT_FAILURE);
-            printf("Created Joypad 4\n");
-        }
-        
-        case 3U:
-        {
-            /* init mutex */
-            if (pthread_mutex_init(&lock_p3, NULL) != 0) { 
-                printf("\n mutex init has failed\n"); 
-                return 1; 
-            } 
-            memset(&vjdata_p3, 0, sizeof(vjdata_p3));
-            if(uinput_init(&fd_p3) < 0)
-                exit(EXIT_FAILURE);
-            printf("Created Joypad 3\n");
-        }
-
-        case 2U:
-        {
-            /* init mutex */
-            if (pthread_mutex_init(&lock_p2, NULL) != 0) { 
-                printf("\n mutex init has failed\n"); 
-                return 1; 
-            } 
-            memset(&vjdata_p2, 0, sizeof(vjdata_p2));
-            if(uinput_init(&fd_p2) < 0)
-                exit(EXIT_FAILURE);
-            printf("Created Joypad 2\n");
-        }
-        
-        case 1U:
-        {
-            /* init mutex */
-            if (pthread_mutex_init(&lock_p1, NULL) != 0) { 
-                printf("\n mutex init has failed\n"); 
-                return 1; 
-            } 
-            //clear the virtual joystick data structure
-            memset(&vjdata_p1, 0, sizeof(vjdata_p1));
-            if(uinput_init(&fd_p1) < 0)
-                exit(EXIT_FAILURE);
-            printf("Created Joypad 1\n");
-        }
-        break;
-
-        default:
-        {
-            /* out of range */
-            printf("Error: Joypad out of range : %d\n", num_virt_joypad);
-            return 1;
-        }
-        break;
-        
+        /* out of range */
+        printf("Error: Joypad out of range : %d\n", num_virt_joypad);
+        return 1;    
+    }
+    
+    //create the virtual joypad(s)
+    //important that they are created in order!
+    if (num_virt_joypad >= 1U)
+    {
+        /* init mutex */
+        if (pthread_mutex_init(&lock_p1, NULL) != 0) { 
+            printf("\n mutex init has failed\n"); 
+            return 1; 
+        } 
+        //clear the virtual joystick data structure
+        memset(&vjdata_p1, 0, sizeof(vjdata_p1));
+        if(uinput_init(&fd_p1) < 0)
+            exit(EXIT_FAILURE);
+        printf("Created Joypad 1\n");
+    }
+    
+    if (num_virt_joypad >= 2U)
+    {
+        /* init mutex */
+        if (pthread_mutex_init(&lock_p2, NULL) != 0) { 
+            printf("\n mutex init has failed\n"); 
+            return 1; 
+        } 
+        memset(&vjdata_p2, 0, sizeof(vjdata_p2));
+        if(uinput_init(&fd_p2) < 0)
+            exit(EXIT_FAILURE);
+        printf("Created Joypad 2\n");
+    }
+    
+    if (num_virt_joypad >= 3U)
+    {
+        /* init mutex */
+        if (pthread_mutex_init(&lock_p3, NULL) != 0) { 
+            printf("\n mutex init has failed\n"); 
+            return 1; 
+        } 
+        memset(&vjdata_p3, 0, sizeof(vjdata_p3));
+        if(uinput_init(&fd_p3) < 0)
+            exit(EXIT_FAILURE);
+        printf("Created Joypad 3\n");
+    }
+    
+    if (num_virt_joypad >= 4U)
+    {
+        /* init mutex */
+        if (pthread_mutex_init(&lock_p4, NULL) != 0) { 
+            printf("\n mutex init has failed\n"); 
+            return 1; 
+        } 
+        memset(&vjdata_p4, 0, sizeof(vjdata_p4));
+        if(uinput_init(&fd_p4) < 0)
+            exit(EXIT_FAILURE);
+        printf("Created Joypad 4\n");
     }
 
     //init the udp device
