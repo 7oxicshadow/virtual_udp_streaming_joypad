@@ -33,7 +33,10 @@ typedef enum
 
 
 unsigned int runme = 1U;
-unsigned int data_received = 0U;
+unsigned int p1_connected = 0U;
+unsigned int p2_connected = 0U;
+unsigned int p3_connected = 0U;
+unsigned int p4_connected = 0U;
 dpad_type_e required_dpad = ANA_DIG_DPAD;
 unsigned int target_port = DEFAULT_PORT;
 unsigned int num_virt_joypad = 1U;
@@ -88,13 +91,7 @@ void *UDP_Read_Thread(void *vargp)
                 &len);
       
         if(n > -1)
-        {
-            if(data_received == 0U)
-            {
-                data_received = 1U;
-                printf("First Packet Received\n");
-            }
-            
+        {           
             #if(0)
             for(i=0; i<sizeof(virjoy_st); i++)
             {    
@@ -113,6 +110,11 @@ void *UDP_Read_Thread(void *vargp)
                 {
                     case 1U:
                     {
+                        if(p1_connected == 0U)
+                        {
+                            p1_connected = 1U;
+                            printf("Player 1 Connected\n");
+                        }
                         pthread_mutex_lock(&lock_p1); 
                         memset(&vjdata_p1, 0, sizeof(virjoy_st));
                         memcpy(vjdata_p1.raw, buffer, sizeof(virjoy_st));
@@ -122,6 +124,11 @@ void *UDP_Read_Thread(void *vargp)
                     
                     case 2U:
                     {
+                        if(p2_connected == 0U)
+                        {
+                            p2_connected = 1U;
+                            printf("Player 2 Connected\n");
+                        }
                         pthread_mutex_lock(&lock_p2); 
                         memset(&vjdata_p2, 0, sizeof(virjoy_st));
                         memcpy(vjdata_p2.raw, buffer, sizeof(virjoy_st));
@@ -131,6 +138,11 @@ void *UDP_Read_Thread(void *vargp)
                     
                     case 3U:
                     {
+                        if(p3_connected == 0U)
+                        {
+                            p3_connected = 1U;
+                            printf("Player 3 Connected\n");
+                        }
                         pthread_mutex_lock(&lock_p3); 
                         memset(&vjdata_p3, 0, sizeof(virjoy_st));
                         memcpy(vjdata_p3.raw, buffer, sizeof(virjoy_st));
@@ -140,6 +152,11 @@ void *UDP_Read_Thread(void *vargp)
                     
                     case 4U:
                     {
+                        if(p4_connected == 0U)
+                        {
+                            p4_connected = 1U;
+                            printf("Player 4 Connected\n");
+                        }
                         pthread_mutex_lock(&lock_p4); 
                         memset(&vjdata_p4, 0, sizeof(virjoy_st));
                         memcpy(vjdata_p4.raw, buffer, sizeof(virjoy_st));
