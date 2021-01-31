@@ -95,20 +95,20 @@ void *UDP_Read_Thread(void *vargp)
                 printf("First Packet Received\n");
             }
             
-            /*
+            #if(0)
             for(i=0; i<sizeof(virjoy_st); i++)
             {    
-                printf("%02x ", (unsigned char)buffer[i]);
+                printf("%02x ", (unsigned char)buffer[i]);                
             }
             
             printf("\n");
-            */
+            #endif
 
             if ( simple_checksum(buffer, sizeof(virjoy_st)) == 0)
             //if (1)
             {
                 joyptr = (virjoy_st*)buffer;
-                                
+                                                
                 switch(joyptr->VIRJOY_PLAYER)
                 {
                     case 1U:
@@ -297,8 +297,8 @@ void UDP_init(void)
 }
 
 void process_received_data(virjoy_un *data, virjoy_un *data_prev, int *filedesc, pthread_mutex_t *lock)
-{
-    if(memcmp(data->raw, data_prev->raw, sizeof(data)) != 0)
+{    
+    if(memcmp(data->raw, data_prev->raw, sizeof(virjoy_st)) != 0)
     {
         /* lock the data so that the UDP thread can not write to it */
         pthread_mutex_lock(lock);
@@ -336,6 +336,9 @@ void process_received_data(virjoy_un *data, virjoy_un *data_prev, int *filedesc,
         emit(*filedesc, EV_ABS, ABS_RX, data->virtualjoydata.VIRJOY_ABS_RX);
         emit(*filedesc, EV_ABS, ABS_RY, data->virtualjoydata.VIRJOY_ABS_RY);
 
+        
+        //printf("%d\n",data->virtualjoydata.VIRJOY_ABS_LT);
+        //printf("%d\n",data->virtualjoydata.VIRJOY_ABS_RT);
         emit(*filedesc, EV_ABS, ABS_Z, data->virtualjoydata.VIRJOY_ABS_LT);
         emit(*filedesc, EV_ABS, ABS_RZ, data->virtualjoydata.VIRJOY_ABS_RT);
         
@@ -349,7 +352,7 @@ void process_received_data(virjoy_un *data, virjoy_un *data_prev, int *filedesc,
         emit(*filedesc, EV_SYN, SYN_REPORT, 0);
 
         /* update the previous data ready for the next pass */
-        memcpy(data_prev->raw, data->raw, sizeof(data));
+        memcpy(data_prev->raw, data->raw, sizeof(virjoy_st));
 
         /* remove mutex lock */
         pthread_mutex_unlock(lock);
